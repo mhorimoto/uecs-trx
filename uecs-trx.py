@@ -25,46 +25,59 @@ PORT = 16529
 PORT = 16520
 #config = configparser.ConfigParser()
 #config.read('/etc/uecs/config.ini')
-ADDTOD = False
-
-def menuAddTod():
-    ADDTOD=True
-    # ここにメニュー表示を変更するロジックを書く
 
 def menu_about():
-    messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.01')
+    messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.02')
 
 def btn_quit():
     quit()
 
 rxp = tk.Tk()
 rxp.title("受信機")
-rxp.geometry("1280x270")
+rxp.geometry("1280x770")
 mainFrame = tk.Frame(rxp)
 rxmenu = tk.Menu(rxp)
-rxp.config(menu=rxmenu)
+rxp.configure(menu=rxmenu)
 
-rxmenu_file = tk.Menu(rxp)
-rxmenu.add_cascade(label='File',  menu=rxmenu_file)
+rxmenu_file   = tk.Menu(rxmenu,tearoff=False)
+rxmenu_format = tk.Menu(rxmenu,tearoff=False)
+rxmenu_help   = tk.Menu(rxmenu,tearoff=False)
+
+rxmenu.add_cascade(label='File',   underline=0, menu=rxmenu_file)
+rxmenu.add_cascade(label='Format', underline=0, menu=rxmenu_format)
+rxmenu.add_cascade(label='Help',   underline=0, menu=rxmenu_help)
 #
 rxmenu_file.add_command(label='ABOUT',command=menu_about)
+rxmenu_file.add_separator()
 rxmenu_file.add_command(label='QUIT',command=btn_quit)
 #
-rxmenu_format = tk.Menu(rxp)
-rxmenu.add_cascade(label='Format',menu=rxmenu_format)
-rxmenu_format.add_command(label='ADD TOD',command=menuAddTod)
-
-mainFrame.pack()
+addtod = tk.IntVar()
+rxmenu_format.add_checkbutton(label='ADD TOD',onvalue=1, offvalue=0, variable=addtod)
+rxmenu_help.add_command(label='ABOUT',command=menu_about)
+mainFrame.grid()
 
 titleFrame = tk.Frame(mainFrame)
-label1 = tk.Label(titleFrame,text="UECS通信機")
-label2 = tk.Label(titleFrame,text="受信電文")
-label1.pack(side=tk.LEFT)
-label2.pack(side=tk.RIGHT)
-titleFrame.pack()
+label1 = tk.Label(titleFrame,text="UECS通信機 受信電文")
+label1.pack(side=tk.TOP)
+titleFrame.grid(column=0,row=0)
+
+optionFrame = tk.Frame(mainFrame)
+optlbl1 = tk.Label(optionFrame,text="受信PORT")
+dpd = tk.BooleanVar()
+dpd.set(True)
+cpd = tk.BooleanVar()
+cpd.set(True)
+
+dport = tk.Checkbutton(optionFrame,variable=dpd,text="16520")
+cport = tk.Checkbutton(optionFrame,variable=cpd,text="16529")
+
+optlbl1.pack(side=tk.LEFT)
+dport.pack()
+cport.pack()
+optionFrame.grid(column=0,row=1)
 
 textFrame = tk.Frame(mainFrame,width=1270,height=250)
-textFrame.pack()
+textFrame.grid()
 rtext = tk.Text(textFrame,bg='white',width=180,height=30,relief="groove")
 rtext.pack(side=tk.LEFT,padx=(3,0),pady=(3,3))
 scrollbar = tk.Scrollbar(textFrame,orient=tk.VERTICAL,command=rtext.yview)
@@ -93,15 +106,27 @@ class ServerThread(threading.Thread):
 
     def run(self):
         while True:
-# #            try:
-                 data, self.addr = self.udpServSock.recvfrom(self.BUFSIZE) # データ受信
-                 self.data = data.decode('utf-8').rstrip("\n")
-                 rtext.insert('end',data.decode('utf-8')+'\n')
-                 print(self.data)
-#                 root = ET.fromstring(self.data)
-#                 for c1 in root:
-#                     sp = c1.tag
-# #                    print("SPd=:{0}:".format(sp))
+            a=datetime.datetime.now()
+            s="{0:4d}/{1:02d}/{2:02d} {3:2d}:{4:02d}:{5:02d}"\
+                .format(a.year,a.month,a.day,a.hour,a.minute,a.second)
+
+            # try:
+            data, self.addr = self.udpServSock.recvfrom(self.BUFSIZE) # データ受信
+            self.data = data.decode('utf-8').rstrip("\n")
+            if (addtod.get()==0):
+                txt = "{0}".format(self.data)
+            else:
+                txt = "{0} {1}".format(s,self.data)
+            rtext.insert('end',txt+'\n')
+            rtext.see('end')
+            print(txt)
+            print("cport={0}  dport={1}".format(cpd.get(),dpd.get()))
+            root = ET.fromstring(self.data)
+            for c1 in root:
+                sp = c1.tag
+                print("SPd=:{0}:".format(sp))
+                for c2 in c1.attrib:
+                    print(c2)
 
 #                 if ( sp == 'NODESCAN' ):
 #                     self.sdata = "{0}{1}<NODE><NAME>{2}</NAME><VENDER>{3}</VENDER>"\
