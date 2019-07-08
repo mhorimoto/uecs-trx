@@ -1,8 +1,8 @@
 #! /usr/bin/python3
 #coding: utf-8
 #
-# Ver: 0.01
-# Date: 2019/07/01
+# Ver: 0.03
+# Date: 2019/07/08
 # Author: horimoto@holly-linux.com
 #
 import datetime
@@ -27,7 +27,7 @@ DPORT = 16520
 #config.read('/etc/uecs/config.ini')
 
 def menu_about():
-    messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.02')
+    messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.03')
 
 def btn_quit():
     quit()
@@ -103,7 +103,8 @@ class DataUDP(threading.Thread):
         self.data = 'hoge'
         self.kill_flag = False
         # line information
-        self.HOST = "192.168.38.255"
+        #self.HOST = "192.168.38.255"
+        self.HOST = "0.0.0.0"
         self.DPORT = DPORT
         self.BUFSIZE = 512
         #self.DADDR = (gethostbyname(self.HOST), self.DPORT)
@@ -112,7 +113,8 @@ class DataUDP(threading.Thread):
         # bind
         # DATA PORT
         self.udpDSock = socket(AF_INET, SOCK_DGRAM)
-        self.udpDSock.setsockopt(SOL_SOCKET,SO_REUSEADDR|SO_BROADCAST,1)
+        #self.udpDSock.setsockopt(SOL_SOCKET,SO_REUSEADDR|SO_BROADCAST,1)
+        self.udpDSock.setsockopt(SOL_SOCKET,SO_REUSEPORT|SO_BROADCAST,1)
         self.udpDSock.bind(self.DADDR) # HOST, PORTでbinding
         # Get Network information by myself
         self.ipaddress = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['addr']
@@ -140,24 +142,25 @@ class DataUDP(threading.Thread):
                     v[c2] = c1.attrib[c2]
                     #print("c2[{0}]={1}".format(c2,v[c2]))
             shtype = v['type'][0:3]
-            if (hidencnd.get() and (shtype=='cnd')):
-                pass
-            else:
-                if (not shortesttext.get()):
-                    if (shorttext.get()):
-                        dtext = dtext.replace(XML_HEADER+UECS_HEADER,"")
-                        dtext = dtext.replace("</UECS>","")
+            if (dpd.get()):
+                if (hidencnd.get() and (shtype=='cnd')):
+                    pass
                 else:
-                    dtext = "{0},{1},{2},{3},{4},{5},{6}"\
-                            .format(v['type'],v['room'],v['region'],v['order'],\
-                                    v['priority'],v['DATA'],v['IP'])
-                
-                if (addtod.get()):
-                    txt = "{0} {1}".format(s,dtext)
-                else:
-                    txt = "{0}".format(dtext)
-                rtext.insert('end',txt+'\n')
-                rtext.see('end')
+                    if (not shortesttext.get()):
+                        if (shorttext.get()):
+                            dtext = dtext.replace(XML_HEADER+UECS_HEADER,"")
+                            dtext = dtext.replace("</UECS>","")
+                    else:
+                        dtext = "{0},{1},{2},{3},{4},{5},{6}"\
+                                .format(v['type'],v['room'],v['region'],v['order'],\
+                                        v['priority'],v['DATA'],v['IP'])
+                        
+                    if (addtod.get()):
+                        txt = "{0} {1}".format(s,dtext)
+                    else:
+                        txt = "{0}".format(dtext)
+                    rtext.insert('end',txt+'\n')
+                    rtext.see('end')
                 
             print(txt)
             print("dport={0}".format(dpd.get()))
@@ -175,7 +178,7 @@ class CtrlUDP(threading.Thread):
         # bind
         # CONTROL PORT
         self.udpCSock = socket(AF_INET, SOCK_DGRAM)
-        self.udpCSock.setsockopt(SOL_SOCKET,SO_REUSEADDR|SO_BROADCAST,1)
+        self.udpCSock.setsockopt(SOL_SOCKET,SO_REUSEPORT,1)
         self.udpCSock.bind(self.CADDR) # HOST, PORTでbinding
         # Get Network information by myself
         self.ipaddress = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['addr']
@@ -206,7 +209,7 @@ class CtrlUDP(threading.Thread):
             # if (hidencnd.get() and (shtype=='cnd')):
             #     pass
             # else:
-            if (True):
+            if (cpd.get()):
                 if (not shortesttext.get()):
                     if (shorttext.get()):
                         dtext = dtext.replace(XML_HEADER+UECS_HEADER,"")
@@ -217,9 +220,9 @@ class CtrlUDP(threading.Thread):
                                     v['priority'],v['DATA'],v['IP'])
                 
                 if (addtod.get()):
-                    txt = "{0} {1}".format(s,dtext)
+                    txt = "{0} {1}".format(s,dtext.rstrip("\n"))
                 else:
-                    txt = "{0}".format(dtext)
+                    txt = "{0}".format(dtext.rstrip("\n"))
                 rtext.insert('end',txt+'\n')
                 rtext.see('end')
                 
