@@ -1,7 +1,7 @@
 #! /usr/bin/python3
 #coding: utf-8
 #
-# Ver: 0.03
+# Ver: 0.04
 # Date: 2019/07/08
 # Author: horimoto@holly-linux.com
 #
@@ -19,16 +19,20 @@ from tkinter import messagebox
 
 XML_HEADER  = "<?xml version=\"1.0\"?>"
 UECS_HEADER = "<UECS ver=\"1.00-E10\">"
-HOST = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['addr']
-ADDRESS = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['broadcast']
+IFN  = "enp3s0"
+HOST = netifaces.ifaddresses(IFN)[netifaces.AF_INET][0]['addr']
+ADDRESS = netifaces.ifaddresses(IFN)[netifaces.AF_INET][0]['broadcast']
 print("HOST,ADDRESS={0},{1}".format(HOST,ADDRESS))
 CPORT = 16529
 DPORT = 16520
 #config = configparser.ConfigParser()
 #config.read('/etc/uecs/config.ini')
 
+def send_nodescan():
+    nscmd = "<?xml version=\"1.0\"?><UECS ver=\"1.00-E10\"><NODESCAN/></UECS>"
+    
 def menu_about():
-    messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.03')
+    messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.04')
 
 def btn_quit():
     quit()
@@ -41,10 +45,12 @@ rxmenu = tk.Menu(rxp)
 rxp.configure(menu=rxmenu)
 
 rxmenu_file   = tk.Menu(rxmenu,tearoff=False)
+rxmenu_rxprop = tk.Menu(rxmenu,tearoff=False)
 rxmenu_format = tk.Menu(rxmenu,tearoff=False)
 rxmenu_help   = tk.Menu(rxmenu,tearoff=False)
 
 rxmenu.add_cascade(label='ファイル', underline=0, menu=rxmenu_file)
+rxmenu.add_cascade(label='受信条件', underline=0, menu=rxmenu_rxprop)
 rxmenu.add_cascade(label='出力書式', underline=0, menu=rxmenu_format)
 rxmenu.add_cascade(label='ヘルプ',   underline=0, menu=rxmenu_help)
 #
@@ -52,6 +58,14 @@ rxmenu_file.add_command(label='このプログラムについて',command=menu_a
 rxmenu_file.add_separator()
 rxmenu_file.add_command(label='終了',command=btn_quit)
 #
+dpd = tk.BooleanVar()
+cpd = tk.BooleanVar()
+dpd.set(True)
+cpd.set(True)
+rxmenu_rxprop.add_checkbutton(label='受信ポート:16520',variable=dpd)
+rxmenu_rxprop.add_checkbutton(label='受信ポート:16529',variable=cpd)
+
+
 addtod = tk.BooleanVar()
 shorttext = tk.BooleanVar()
 shortesttext = tk.BooleanVar()
@@ -75,21 +89,6 @@ label1 = tk.Label(titleFrame,text="UECS通信機 受信電文")
 label1.pack(side=tk.TOP)
 titleFrame.grid(column=0,row=0)
 
-optionFrame = tk.Frame(mainFrame)
-optlbl1 = tk.Label(optionFrame,text="受信PORT")
-dpd = tk.BooleanVar()
-dpd.set(True)
-cpd = tk.BooleanVar()
-cpd.set(True)
-
-cb_dport = tk.Checkbutton(optionFrame,variable=dpd,text="16520")
-cb_cport = tk.Checkbutton(optionFrame,variable=cpd,text="16529")
-
-optlbl1.pack(side=tk.LEFT)
-cb_dport.pack()
-cb_cport.pack()
-optionFrame.grid(column=0,row=1)
-
 textFrame = tk.Frame(mainFrame,width=1270,height=200)
 textFrame.grid()
 rtext = tk.Text(textFrame,bg='white',width=180,height=20,relief="groove")
@@ -104,21 +103,17 @@ class DataUDP(threading.Thread):
         self.data = 'hoge'
         self.kill_flag = False
         # line information
-        self.HOST = HOST
-        #self.HOST = "0.0.0.0"
+        self.HOST = ""
         self.DPORT = DPORT
         self.BUFSIZE = 512
-        #self.DADDR = (gethostbyname(self.HOST), self.DPORT)
         self.DADDR = (self.HOST,self.DPORT)
         print("HOST={0}".format(gethostbyname(self.HOST)))
         # bind
-        # DATA PORT
         self.udpDSock = socket(AF_INET, SOCK_DGRAM)
-        #self.udpDSock.setsockopt(SOL_SOCKET,SO_REUSEADDR|SO_BROADCAST,1)
         self.udpDSock.setsockopt(SOL_SOCKET,SO_REUSEPORT|SO_BROADCAST,1)
         self.udpDSock.bind(self.DADDR) # HOST, PORTでbinding
         # Get Network information by myself
-        self.ipaddress = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['addr']
+        self.ipaddress = netifaces.ifaddresses(IFN)[netifaces.AF_INET][0]['addr']
         self.node = uuid.getnode()
         self.mac = uuid.UUID(int=self.node)
         self.macaddr = self.mac.hex[-12:].upper()
@@ -162,9 +157,8 @@ class DataUDP(threading.Thread):
                         txt = "{0}".format(dtext)
                     rtext.insert('end',txt+'\n')
                     rtext.see('end')
-                
-            print(txt)
-            print("dport={0}".format(dpd.get()))
+            #print(txt)
+            #print("dport={0}".format(dpd.get()))
 
 class CtrlUDP(threading.Thread):
     def __init__(self):
@@ -182,7 +176,7 @@ class CtrlUDP(threading.Thread):
         self.udpCSock.setsockopt(SOL_SOCKET,SO_REUSEPORT,1)
         self.udpCSock.bind(self.CADDR) # HOST, PORTでbinding
         # Get Network information by myself
-        self.ipaddress = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['addr']
+        self.ipaddress = netifaces.ifaddresses(IFN)[netifaces.AF_INET][0]['addr']
         self.node = uuid.getnode()
         self.mac = uuid.UUID(int=self.node)
         self.macaddr = self.mac.hex[-12:].upper()
@@ -198,18 +192,7 @@ class CtrlUDP(threading.Thread):
             ddata, self.daddr = self.udpCSock.recvfrom(self.BUFSIZE) # データ受信
             dtext = ddata.decode('utf-8')
             self.ddata = dtext.rstrip("\n")
-            # root = ET.fromstring(self.ddata)
-            # for c1 in root:
-            #     sp = c1.tag
-            #     v[sp] = c1.text
-            #     #print("{0}={1}".format(sp,v[sp]))
-            #     for c2 in c1.attrib:
-            #         v[c2] = c1.attrib[c2]
-            #         #print("c2[{0}]={1}".format(c2,v[c2]))
-            # shtype = v['type'][0:3]
-            # if (hidencnd.get() and (shtype=='cnd')):
-            #     pass
-            # else:
+
             if (cpd.get()):
                 if (not shortesttext.get()):
                     if (shorttext.get()):
@@ -227,8 +210,8 @@ class CtrlUDP(threading.Thread):
                 rtext.insert('end',txt+'\n')
                 rtext.see('end')
                 
-            print(txt)
-            print("cport={0}  dport={1}".format(cpd.get(),dpd.get()))
+            #print(txt)
+            #print("cport={0}  dport={1}".format(cpd.get(),dpd.get()))
 
 
 if __name__ == '__main__':
