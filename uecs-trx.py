@@ -21,6 +21,7 @@ XML_HEADER  = "<?xml version=\"1.0\"?>"
 UECS_HEADER = "<UECS ver=\"1.00-E10\">"
 HOST = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['addr']
 ADDRESS = netifaces.ifaddresses('enp3s0')[netifaces.AF_INET][0]['broadcast']
+print("HOST,ADDRESS={0},{1}".format(HOST,ADDRESS))
 CPORT = 16529
 DPORT = 16520
 #config = configparser.ConfigParser()
@@ -103,8 +104,8 @@ class DataUDP(threading.Thread):
         self.data = 'hoge'
         self.kill_flag = False
         # line information
-        #self.HOST = "192.168.38.255"
-        self.HOST = "0.0.0.0"
+        self.HOST = HOST
+        #self.HOST = "0.0.0.0"
         self.DPORT = DPORT
         self.BUFSIZE = 512
         #self.DADDR = (gethostbyname(self.HOST), self.DPORT)
