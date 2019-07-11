@@ -28,8 +28,11 @@ DPORT = 16520
 #config = configparser.ConfigParser()
 #config.read('/etc/uecs/config.ini')
 
-def send_nodescan():
+def send_nodescan(a):
     nscmd = "<?xml version=\"1.0\"?><UECS ver=\"1.00-E10\"><NODESCAN/></UECS>"
+    a.udpCSock.setsockopt(SOL_SOCKET,SO_REUSEPORT|SO_BROADCAST,1)
+    a.udpCSock.sendto(nscmd.encode(),("192.168.38.255",CPORT))
+    print(a.udpCSock.sendto)
     
 def menu_about():
     messagebox.showinfo('ABOUT','UECS送受信機 Version: 0.04')
@@ -37,65 +40,6 @@ def menu_about():
 def btn_quit():
     quit()
 
-rxp = tk.Tk()
-rxp.title("受信機")
-rxp.geometry("1280x600")
-mainFrame = tk.Frame(rxp)
-rxmenu = tk.Menu(rxp)
-rxp.configure(menu=rxmenu)
-
-rxmenu_file   = tk.Menu(rxmenu,tearoff=False)
-rxmenu_rxprop = tk.Menu(rxmenu,tearoff=False)
-rxmenu_format = tk.Menu(rxmenu,tearoff=False)
-rxmenu_help   = tk.Menu(rxmenu,tearoff=False)
-
-rxmenu.add_cascade(label='ファイル', underline=0, menu=rxmenu_file)
-rxmenu.add_cascade(label='受信条件', underline=0, menu=rxmenu_rxprop)
-rxmenu.add_cascade(label='出力書式', underline=0, menu=rxmenu_format)
-rxmenu.add_cascade(label='ヘルプ',   underline=0, menu=rxmenu_help)
-#
-rxmenu_file.add_command(label='このプログラムについて',command=menu_about)
-rxmenu_file.add_separator()
-rxmenu_file.add_command(label='終了',command=btn_quit)
-#
-dpd = tk.BooleanVar()
-cpd = tk.BooleanVar()
-dpd.set(True)
-cpd.set(True)
-rxmenu_rxprop.add_checkbutton(label='受信ポート:16520',variable=dpd)
-rxmenu_rxprop.add_checkbutton(label='受信ポート:16529',variable=cpd)
-
-
-addtod = tk.BooleanVar()
-shorttext = tk.BooleanVar()
-shortesttext = tk.BooleanVar()
-hidencnd = tk.BooleanVar()
-addtod.set(False)
-shorttext.set(False)
-shortesttext.set(False)
-hidencnd.set(False)
-
-rxmenu_format.add_checkbutton(label='日付を追加する',variable=addtod)
-rxmenu_format.add_checkbutton(label='短縮表示',variable=shorttext)
-rxmenu_format.add_checkbutton(label='極超短縮表示',variable=shortesttext)
-rxmenu_format.add_checkbutton(label='cndを表示しない',variable=hidencnd)
-#
-
-rxmenu_help.add_command(label='このプログラムについて',command=menu_about)
-mainFrame.grid()
-
-titleFrame = tk.Frame(mainFrame)
-label1 = tk.Label(titleFrame,text="UECS通信機 受信電文")
-label1.pack(side=tk.TOP)
-titleFrame.grid(column=0,row=0)
-
-textFrame = tk.Frame(mainFrame,width=1270,height=200)
-textFrame.grid()
-rtext = tk.Text(textFrame,bg='white',width=180,height=20,relief="groove")
-rtext.pack(side=tk.LEFT,padx=(3,0),pady=(3,3))
-scrollbar = tk.Scrollbar(textFrame,orient=tk.VERTICAL,command=rtext.yview)
-scrollbar.pack(side=tk.RIGHT,fill="y")
-rtext["yscrollcommand"] = scrollbar.set
 
 class DataUDP(threading.Thread):
     def __init__(self):
@@ -137,6 +81,7 @@ class DataUDP(threading.Thread):
                 for c2 in c1.attrib:
                     v[c2] = c1.attrib[c2]
                     #print("c2[{0}]={1}".format(c2,v[c2]))
+                    
             shtype = v['type'][0:3]
             if (dpd.get()):
                 if (hidencnd.get() and (shtype=='cnd')):
@@ -173,7 +118,7 @@ class CtrlUDP(threading.Thread):
         # bind
         # CONTROL PORT
         self.udpCSock = socket(AF_INET, SOCK_DGRAM)
-        self.udpCSock.setsockopt(SOL_SOCKET,SO_REUSEPORT,1)
+        self.udpCSock.setsockopt(SOL_SOCKET,SO_REUSEPORT|SO_BROADCAST,1)
         self.udpCSock.bind(self.CADDR) # HOST, PORTでbinding
         # Get Network information by myself
         self.ipaddress = netifaces.ifaddresses(IFN)[netifaces.AF_INET][0]['addr']
@@ -198,6 +143,7 @@ class CtrlUDP(threading.Thread):
                     if (shorttext.get()):
                         dtext = dtext.replace(XML_HEADER+UECS_HEADER,"")
                         dtext = dtext.replace("</UECS>","")
+                        
                 else:
                     dtext = "{0},{1},{2},{3},{4},{5},{6}"\
                             .format(v['type'],v['room'],v['region'],v['order'],\
@@ -205,8 +151,10 @@ class CtrlUDP(threading.Thread):
                 
                 if (addtod.get()):
                     txt = "{0} {1}".format(s,dtext.rstrip("\n"))
+                    
                 else:
                     txt = "{0}".format(dtext.rstrip("\n"))
+                    
                 rtext.insert('end',txt+'\n')
                 rtext.see('end')
                 
@@ -221,6 +169,72 @@ if __name__ == '__main__':
     ctudp = CtrlUDP()
     ctudp.setDaemon(True)
     ctudp.start()
+
+
+    rxp = tk.Tk()
+    rxp.title("受信機")
+    rxp.geometry("1280x600")
+    mainFrame = tk.Frame(rxp)
+    rxmenu = tk.Menu(rxp)
+    rxp.configure(menu=rxmenu)
+
+    rxmenu_file   = tk.Menu(rxmenu,tearoff=False)
+    rxmenu_rxprop = tk.Menu(rxmenu,tearoff=False)
+    rxmenu_format = tk.Menu(rxmenu,tearoff=False)
+    rxmenu_help   = tk.Menu(rxmenu,tearoff=False)
+
+    rxmenu.add_cascade(label='ファイル', underline=0, menu=rxmenu_file)
+    rxmenu.add_cascade(label='受信条件', underline=0, menu=rxmenu_rxprop)
+    rxmenu.add_cascade(label='出力書式', underline=0, menu=rxmenu_format)
+    rxmenu.add_cascade(label='ヘルプ',   underline=0, menu=rxmenu_help)
+    #
+    rxmenu_file.add_command(label='このプログラムについて',command=menu_about)
+    rxmenu_file.add_separator()
+    rxmenu_file.add_command(label='終了',command=btn_quit)
+    #
+    dpd = tk.BooleanVar()
+    cpd = tk.BooleanVar()
+    dpd.set(True)
+    cpd.set(True)
+    rxmenu_rxprop.add_checkbutton(label='受信ポート:16520',variable=dpd)
+    rxmenu_rxprop.add_checkbutton(label='受信ポート:16529',variable=cpd)
+
+    addtod = tk.BooleanVar()
+    shorttext = tk.BooleanVar()
+    shortesttext = tk.BooleanVar()
+    hidencnd = tk.BooleanVar()
+    addtod.set(False)
+    shorttext.set(False)
+    shortesttext.set(False)
+    hidencnd.set(False)
+
+    rxmenu_format.add_checkbutton(label='日付を追加する',variable=addtod)
+    rxmenu_format.add_checkbutton(label='短縮表示',variable=shorttext)
+    rxmenu_format.add_checkbutton(label='極超短縮表示',variable=shortesttext)
+    rxmenu_format.add_checkbutton(label='cndを表示しない',variable=hidencnd)
+    #
+
+    rxmenu_help.add_command(label='このプログラムについて',command=menu_about)
+    mainFrame.grid()
+
+    titleFrame = tk.Frame(mainFrame)
+    label1 = tk.Label(titleFrame,text="UECS通信機 受信電文")
+    label1.pack(side=tk.TOP)
+    titleFrame.grid(column=0,row=0)
+
+    textFrame = tk.Frame(mainFrame,width=1270,height=200)
+    textFrame.grid()
+    rtext = tk.Text(textFrame,bg='white',width=180,height=20,relief="groove")
+    rtext.pack(side=tk.LEFT,padx=(3,0),pady=(3,3))
+    scrollbar = tk.Scrollbar(textFrame,orient=tk.VERTICAL,command=rtext.yview)
+    scrollbar.pack(side=tk.RIGHT,fill="y")
+    rtext["yscrollcommand"] = scrollbar.set
+
+    btn_nodescan = tk.Button(mainFrame, text="NODESCANを送信する", command=lambda:send_nodescan(ctudp))
+    btn_nodescan.grid()
+    btn_ccmscan = tk.Button(mainFrame, text="CCMSCANを送信する", command=send_nodescan)
+    btn_ccmscan.grid()
+
     rxp.mainloop()
 
     while True:
